@@ -1,33 +1,37 @@
 #!/usr/bin/env node
 
-import { execa } from 'execa';
+import { create } from './commands/create.js';
+import { release } from './commands/release.js';
 
-const projectName = process.argv[2];
+const [command, ...args] = process.argv.slice(2);
 
-if (!projectName) {
-  console.error('❌ 請提供專案名稱：npx nextforge <project-name>');
-  process.exit(1);
+async function router() {
+  const flags = {
+    dryRun: args.includes('--dry-run'),
+    force: args.includes('--force'),
+    withAuth: args.includes('--with-auth'),
+    withRedux: args.includes('--with-redux'),
+  };
+
+  switch (command) {
+    case 'release':
+      const releaseType = args.find(arg => !arg.startsWith('--')) || 'patch';
+      await release(releaseType, flags);
+      break;
+
+    default:
+      if (!command) {
+        console.log('Usage:');
+        console.log('  nextforge <project-name> [flags]');
+        console.log('  nextforge release <patch|minor|major> [--dry-run]');
+        process.exit(0);
+      }
+      await create(command, flags);
+      break;
+  }
 }
 
-console.log(`🚀 建立 Next.js 專案：${projectName}`);
-
-try {
-  await execa(
-    'npx',
-    [
-      'create-next-app@latest',
-      projectName,
-      '--typescript',
-      '--eslint',
-    ],
-    { stdio: 'inherit' }
-  );
-
-  console.log(`✅ 專案 "${projectName}" 建立完成！`);
-  console.log(`\n👉 下一步：`);
-  console.log(`   cd ${projectName}`);
-  console.log(`   npm run dev`);
-} catch (error) {
-  console.error('❌ 建立失敗：', error.message);
+router().catch(err => {
+  console.error('❌ Unexpected error:', err.message);
   process.exit(1);
-}
+});
