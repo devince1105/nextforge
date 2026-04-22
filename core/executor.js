@@ -1,42 +1,42 @@
 import { PluginRegistry } from '../plugins/registry.js';
 
-/**
- * 安全執行單個插件的 Hook
- * 隔離插件錯誤，防止中斷核心流程
- */
-async function safeRun(plugin, hookName, context, payload) {
-  const hook = plugin?.hooks?.[hookName];
+export class PluginExecutor {
+  /**
+   * 執行指定命令的完整生命週期
+   */
+  static async run(command, context) {
+    const plugins = PluginRegistry.getAll();
 
-  if (typeof hook !== 'function') return;
+    // 定義各命令的生命週期圖譜 (Lifecycle Graph)
+    const lifecycleMap = {
+      create: [
+        'init',          
+        'resolve',       
+        'validate',      
+        'beforeCreate',  
+        'create',        
+        'afterCreate',   
+        'destroy'        
+      ]
+    };
 
-  try {
-    // 執行插件邏輯，傳入 context 與 payload
-    await hook(context, payload);
-  } catch (err) {
-    // 輸出警告但不拋出錯誤，實現 Error Isolation
-    console.warn(`\n⚠️  [PLUGIN ERROR] ${plugin.name} 在執行 ${hookName} 時發生錯誤:`);
-    console.warn(`   > ${err.message}\n`);
+    const phases = lifecycleMap[command];
+    if (!phases) throw new Error(`[Executor] 未知的命令類型: ${command}`);
+
+    // 按 Phase -> Plugin 順序執行 Pipeline
+    for (const phase of phases) {
+      for (const plugin of plugins) {
+        const handler = plugin.hooks?.[phase];
+        if (typeof handler !== 'function') continue;
+
+        try {
+          // 執行插件並傳入 Context
+          await handler(context);
+        } catch (err) {
+          console.warn(`\n⚠️  [plugin:${plugin.name}] 於 ${phase} 階段執行失敗:`);
+          console.warn(`   > ${err.message}\n`);
+        }
+      }
+    }
   }
 }
-
-export const PluginExecutor = {
-  /**
-   * 按優先級順序執行所有插件的指定 Hook
-   */
-  async runHook(hookName, context, payload = {}) {
-    const plugins = PluginRegistry.list();
-
-    // Sequential Pipeline: 嚴格按優先級順序執行
-    for (const plugin of plugins) {
-      await safeRun(plugin, hookName, context, payload);
-    }
-  },
-
-  /**
-   * Lifecycle Helper: 用於執行特定階段的生命週期
-   */
-  async runLifecycle(lifecycle, context, payload = {}) {
-    // 語義化封裝，本質上是調用 runHook
-    await this.runHook(lifecycle, context, payload);
-  }
-};
