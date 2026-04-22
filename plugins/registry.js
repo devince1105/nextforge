@@ -1,41 +1,22 @@
-const registry = new Map();
+export class PluginRegistry {
+  static plugins = [];
 
-export const PluginRegistry = {
   /**
-   * 註冊一個插件實例
+   * 註冊插件，並即時依 priority 降序排序
    */
-  register(plugin) {
-    if (!plugin || !plugin.name) {
-      throw new Error('[PluginRegistry] 註冊失敗：插件必須具備 name 屬性');
-    }
+  static register(plugin) {
+    if (!plugin?.name) throw new Error('插件必須具備名稱');
     
-    // 設定預設優先級
-    if (plugin.priority == null) {
-      plugin.priority = 0;
-    }
+    this.plugins.push({
+      priority: 0, 
+      ...plugin
+    });
 
-    registry.set(plugin.name, plugin);
-  },
-
-  /**
-   * 獲取指定名稱的插件
-   */
-  get(name) {
-    return registry.get(name);
-  },
-
-  /**
-   * 列出所有註冊的插件 (依優先級降序排序)
-   */
-  list() {
-    return Array.from(registry.values())
-      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
-  },
-
-  /**
-   * 清空註冊中心
-   */
-  clear() {
-    registry.clear();
+    // 數字越大，執行順序越靠前
+    this.plugins.sort((a, b) => (b.priority || 0) - (a.priority || 0));
   }
-};
+
+  static getAll() {
+    return this.plugins;
+  }
+}

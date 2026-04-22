@@ -1,34 +1,21 @@
+import { execa } from 'execa';
+
 /**
- * Plugin Runtime Context
- * 作為插件與 Core 之間的通訊橋樑
+ * 建立插件執行的環境上下文
  */
-export class PluginContext {
-  constructor({ projectRoot, config = {}, version = null }) {
-    this.projectRoot = projectRoot;
-    this.config = config;
-    this.version = version;
-    this.state = new Map(); // 用於存儲插件間共享的私有狀態
-    this.timestamp = Date.now();
-  }
-
-  /**
-   * 儲存共享數據
-   */
-  set(key, value) {
-    this.state.set(key, value);
-  }
-
-  /**
-   * 讀取共享數據
-   */
-  get(key) {
-    return this.state.get(key);
-  }
-
-  /**
-   * 導出所有狀態
-   */
-  getAllState() {
-    return Object.fromEntries(this.state);
-  }
+export function createContext({ projectRoot, config }) {
+  return {
+    projectRoot,
+    config,
+    // 注入基礎工具，讓插件不需重複導入
+    utils: {
+      exec: async (cmd, args, options = {}) => {
+        return await execa(cmd, args, {
+          stdio: 'inherit',
+          ...options
+        });
+      }
+    },
+    state: new Map() // 用於插件間交換資料
+  };
 }

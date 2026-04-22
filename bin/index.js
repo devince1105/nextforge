@@ -1,37 +1,46 @@
 #!/usr/bin/env node
 
-import { create } from './commands/create.js';
-import { release } from './commands/release.js';
+import path from 'node:path';
+import { createContext } from '../core/context.js';
+import { PluginExecutor } from '../core/executor.js';
+import { loadPlugins } from '../plugins/loader.js';
+import { startInteractiveFlow } from '../lib/interactive.js';
 
-const [command, ...args] = process.argv.slice(2);
+async function bootstrap() {
+  // 1. 引擎初始化 (自動加載插件目錄下的所有 plugin-*.js)
+  await loadPlugins();
 
-async function router() {
-  const flags = {
-    dryRun: args.includes('--dry-run'),
-    force: args.includes('--force'),
-    withAuth: args.includes('--with-auth'),
-    withRedux: args.includes('--with-redux'),
-  };
+  const [command, ...args] = process.argv.slice(2);
 
-  switch (command) {
-    case 'release':
-      const releaseType = args.find(arg => !arg.startsWith('--')) || 'patch';
-      await release(releaseType, flags);
-      break;
+  // 2. 交互式獲取配置 (目前僅針對 create 或預設行為)
+  const projectName = (command === 'create') ? args[0] : command;
+  
+  if (!projectName || projectName === 'release') {
+    // 若為 release，此處可選擇性引導至原有 lib 中的 release 邏輯
+    // 目前範例專注於 create 流程的引擎化
+    if (projectName === 'release') {
+      console.log('Release command currently active in legacy mode.');
+    } else {
+      console.log('Usage: nextforge <project-name>');
+    }
+    process.exit(0);
+  }
 
-    default:
-      if (!command) {
-        console.log('Usage:');
-        console.log('  nextforge <project-name> [flags]');
-        console.log('  nextforge release <patch|minor|major> [--dry-run]');
-        process.exit(0);
-      }
-      await create(command, flags);
-      break;
+  const config = await startInteractiveFlow();
+
+  // 3. 建立執行上下文並啟動引擎
+  const context = createContext({
+    projectRoot: path.join(process.cwd(), projectName),
+    config
+  });
+
+  try {
+    await PluginExecutor.run('create', context);
+    console.log(`\n✨ [Engine] 任務執行完成。`);
+  } catch (err) {
+    console.error('\n❌ [Engine] 致命中斷：', err.message);
+    process.exit(1);
   }
 }
 
-router().catch(err => {
-  console.error('❌ Unexpected error:', err.message);
-  process.exit(1);
-});
+bootstrap();
