@@ -6,7 +6,9 @@ export default {
     async afterCreate(ctx) {
       if (!ctx.config.features?.auth) return;
 
-      await ctx.utils.exec('npm', ['install', 'axios'], {
+      const pm = ctx.config.packageManager || 'pnpm';
+      const installCmd = pm === 'npm' ? 'install' : 'add';
+      await ctx.utils.exec(pm, [installCmd, 'axios'], {
         cwd: ctx.projectRoot
       });
     }

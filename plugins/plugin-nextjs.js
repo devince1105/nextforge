@@ -9,8 +9,12 @@ export default {
       if (ctx.config.template !== 'nextjs') return;
 
       const projectName = path.basename(ctx.projectRoot);
-      await ctx.utils.exec('npx', [
-        'create-next-app@latest',
+      const pm = ctx.config.packageManager || 'pnpm';
+      const execCmd = pm === 'npm' ? 'npx' : (pm === 'yarn' ? 'yarn' : 'pnpm');
+      const execArgs = pm === 'npm' ? ['create-next-app@latest'] : (pm === 'yarn' ? ['create', 'next-app'] : ['dlx', 'create-next-app@latest']);
+
+      await ctx.utils.exec(execCmd, [
+        ...execArgs,
         projectName,
         '--typescript',
         '--tailwind',
@@ -18,7 +22,8 @@ export default {
         '--app',
         '--src-dir',
         '--import-alias', '@/*',
-        '--no-git'
+        '--no-git',
+        `--use-${pm}`
       ]);
     }
   }
